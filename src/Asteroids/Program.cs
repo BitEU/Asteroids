@@ -15,15 +15,33 @@ namespace Asteroids
         static void Main(string[] args)
         {
             // Prepare the console
-
             Console.Title = "Asteroids | By: Kat9_123";
 
             // I thought that Courier New looked alright
             ConsoleHelper.SetCurrentFont(Settings.FONT, 7);
             
-            // These were the values that worked.
-            Console.SetWindowSize(Settings.SCREEN_SIZE_X + 1,Settings.SCREEN_SIZE_Y + 2);
-            Console.SetBufferSize(Settings.SCREEN_SIZE_X + 1,Settings.SCREEN_SIZE_Y + 2);
+            try 
+            {
+                // Set window size first, then buffer size
+                Console.SetWindowSize(Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth), 
+                                    Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight));
+                Console.SetBufferSize(Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth), 
+                                    Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight));
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // If we can't set the desired size, use maximum available
+                int maxWidth = Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth);
+                int maxHeight = Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight);
+                
+                Console.SetWindowSize(maxWidth, maxHeight);
+                Console.SetBufferSize(maxWidth, maxHeight);
+                
+                Console.WriteLine($"Console resized to {maxWidth}x{maxHeight} due to system limitations.");
+                Console.WriteLine("Press any key to continue...");
+                Console.ReadKey();
+            }
+            
             Console.CursorVisible = false;
 
             // Load the highscore, if the file is present.
@@ -32,12 +50,9 @@ namespace Asteroids
                 GameManager.highScore = Utils.LoadData();
             }
 
-
             Renderer.Initialise();
-          
+            
             GameManager.Start();
-
-
         }
 
     }
