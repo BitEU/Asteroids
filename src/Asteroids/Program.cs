@@ -12,34 +12,57 @@ namespace Asteroids
 {
     static class Program
     {
+        // Store original console settings for restoration
+        private static ConsoleHelper.FontInfo[] originalFontInfo;
+        private static bool originalCursorVisible;
+        private static int originalWindowWidth;
+        private static int originalWindowHeight;
+        private static int originalBufferWidth;
+        private static int originalBufferHeight;
+        private static string originalTitle;
+
         static void Main(string[] args)
         {
-            // Prepare the console
-            Console.Title = "Asteroids | By: Kat9_123";
+            // Store original console settings
+            StoreOriginalConsoleSettings();
+            
+            // Set up Ctrl+C handler for graceful exit
+            Console.CancelKeyPress += OnCancelKeyPress;
+            
+            try
+            {
+                // Prepare the console
+                Console.Title = "Asteroids | By: Kat9_123";
 
-            // I thought that Courier New looked alright
-            ConsoleHelper.SetCurrentFont(Settings.FONT, 7);
+                // I thought that Courier New looked alright
+                ConsoleHelper.SetCurrentFont(Settings.FONT, 7);
             
             try 
             {
-                // Set window size first, then buffer size
-                Console.SetWindowSize(Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth), 
-                                    Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight));
-                Console.SetBufferSize(Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth), 
-                                    Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight));
+                // Set window size first, then buffer size (Windows only)
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Console.SetWindowSize(Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth), 
+                                        Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight));
+                    Console.SetBufferSize(Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth), 
+                                        Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight));
+                }
             }
             catch (ArgumentOutOfRangeException)
             {
-                // If we can't set the desired size, use maximum available
-                int maxWidth = Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth);
-                int maxHeight = Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight);
-                
-                Console.SetWindowSize(maxWidth, maxHeight);
-                Console.SetBufferSize(maxWidth, maxHeight);
-                
-                Console.WriteLine($"Console resized to {maxWidth}x{maxHeight} due to system limitations.");
-                Console.WriteLine("Press any key to continue...");
-                Console.ReadKey();
+                // If we can't set the desired size, use maximum available (Windows only)
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    int maxWidth = Math.Min(Settings.SCREEN_SIZE_X + 1, Console.LargestWindowWidth);
+                    int maxHeight = Math.Min(Settings.SCREEN_SIZE_Y + 2, Console.LargestWindowHeight);
+                    
+                    Console.SetWindowSize(maxWidth, maxHeight);
+                    Console.SetBufferSize(maxWidth, maxHeight);
+                    
+                    Console.WriteLine($"Console resized to {maxWidth}x{maxHeight} due to system limitations.");
+                    Console.WriteLine("Press any key to continue...");
+                    Console.ReadKey();
+                }
             }
             
             Console.CursorVisible = false;
@@ -52,7 +75,106 @@ namespace Asteroids
 
             Renderer.Initialise();
             
-            GameManager.Start();
+                GameManager.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+                RestoreConsoleSettings();
+                Environment.Exit(1);
+            }
+        }
+
+        private static void StoreOriginalConsoleSettings()
+        {
+            try
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    originalCursorVisible = Console.CursorVisible;
+                    originalWindowWidth = Console.WindowWidth;
+                    originalWindowHeight = Console.WindowHeight;
+                    originalBufferWidth = Console.BufferWidth;
+                    originalBufferHeight = Console.BufferHeight;
+                    originalTitle = Console.Title;
+                    
+                    // Store original font info
+                    originalFontInfo = ConsoleHelper.GetCurrentFont();
+                }
+                else
+                {
+                    // For non-Windows platforms, use defaults
+                    originalCursorVisible = true;
+                    originalWindowWidth = 80;
+                    originalWindowHeight = 25;
+                    originalBufferWidth = 80;
+                    originalBufferHeight = 25;
+                    originalTitle = "Terminal";
+                    originalFontInfo = null;
+                }
+            }
+            catch (Exception)
+            {
+                // If we can't get the original settings, we'll use defaults
+                originalCursorVisible = true;
+                originalWindowWidth = 80;
+                originalWindowHeight = 25;
+                originalBufferWidth = 80;
+                originalBufferHeight = 25;
+                originalTitle = "Terminal";
+                originalFontInfo = null;
+            }
+        }
+
+        internal static void RestoreConsoleSettings()
+        {
+            try
+            {
+                Console.CursorVisible = originalCursorVisible;
+                
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Console.Title = originalTitle;
+                    
+                    // Restore original font if we have it
+                    if (originalFontInfo != null && originalFontInfo.Length > 0)
+                    {
+                        ConsoleHelper.RestoreFont(originalFontInfo[0]);
+                    }
+                    
+                    // Restore window and buffer size
+                    Console.SetWindowSize(Math.Min(originalWindowWidth, Console.LargestWindowWidth), 
+                                        Math.Min(originalWindowHeight, Console.LargestWindowHeight));
+                    Console.SetBufferSize(Math.Min(originalBufferWidth, Console.LargestWindowWidth), 
+                                        Math.Min(originalBufferHeight, Console.LargestWindowHeight));
+                }
+                
+                Console.Clear();
+            }
+            catch (Exception)
+            {
+                // If restoration fails, at least try to make the cursor visible and clear
+                try
+                {
+                    Console.CursorVisible = true;
+                    Console.Clear();
+                }
+                catch (Exception) { }
+            }
+        }
+
+        private static void OnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        {
+            e.Cancel = true; // Prevent immediate termination
+            
+            // Save high score
+            if (GameManager.highScore > 0)
+            {
+                Utils.SaveData(GameManager.highScore);
+            }
+            
+            RestoreConsoleSettings();
+            Environment.Exit(0);
         }
 
     }
@@ -155,6 +277,7 @@ namespace Asteroids
                 if (GetAsyncKeyState(Utils.VK_ESC) > 1)
                 {
                     Utils.SaveData(highScore);
+                    Program.RestoreConsoleSettings();
                     Environment.Exit(1);
                 }
                 // Check if the pause key (P) was JUST pressed
@@ -370,6 +493,7 @@ namespace Asteroids
                 if (GetAsyncKeyState(Utils.VK_ESC) > 1)
                 {
                     Utils.SaveData(highScore);
+                    Program.RestoreConsoleSettings();
                     Environment.Exit(1);
                 }
 

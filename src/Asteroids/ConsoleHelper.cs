@@ -43,8 +43,6 @@ namespace Asteroids
 
         public static FontInfo[] SetCurrentFont(string font, short fontSize = 0)
         {
-
-
             FontInfo before = new FontInfo
             {
                 cbSize = Marshal.SizeOf<FontInfo>()
@@ -84,6 +82,42 @@ namespace Asteroids
                 var er = Marshal.GetLastWin32Error();
                 Console.WriteLine("Get error " + er);
                 throw new System.ComponentModel.Win32Exception(er);
+            }
+        }
+
+        public static FontInfo[] GetCurrentFont()
+        {
+            FontInfo current = new FontInfo
+            {
+                cbSize = Marshal.SizeOf<FontInfo>()
+            };
+
+            if (GetCurrentConsoleFontEx(ConsoleOutputHandle, false, ref current))
+            {
+                return new[] { current };
+            }
+            else
+            {
+                var er = Marshal.GetLastWin32Error();
+                Console.WriteLine("Get current font error " + er);
+                throw new System.ComponentModel.Win32Exception(er);
+            }
+        }
+
+        public static void RestoreFont(FontInfo fontInfo)
+        {
+            try
+            {
+                if (!SetCurrentConsoleFontEx(ConsoleOutputHandle, false, ref fontInfo))
+                {
+                    var ex = Marshal.GetLastWin32Error();
+                    Console.WriteLine("Restore font error " + ex);
+                    // Don't throw here, as this is called during cleanup
+                }
+            }
+            catch (Exception)
+            {
+                // Silently fail during restoration to avoid issues during cleanup
             }
         }
     }

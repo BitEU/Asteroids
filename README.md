@@ -1,3 +1,5 @@
+Compile with this command: dotnet publish -c Release
+
 # Asteroids
 **A console version of Asteroids written in C#**
 
